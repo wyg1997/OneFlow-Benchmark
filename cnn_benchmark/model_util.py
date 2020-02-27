@@ -13,7 +13,7 @@ def conv2d_layer(
     data_format="NCHW",
     dilation_rate=1,
     activation="Relu",
-    use_bias=True,
+    use_bias=False,
     weight_initializer=flow.random_uniform_initializer(),
     bias_initializer=flow.constant_initializer(),
 ):

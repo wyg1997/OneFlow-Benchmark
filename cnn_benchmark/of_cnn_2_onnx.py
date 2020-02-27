@@ -66,9 +66,15 @@ def main():
     else:
         print("Init model on demand.")
         check_point.init()
-    onnx_model = flow.export_onnx(args.model_load_dir)
-    print(type(onnx_model))
-
+    exit()
+    flow.export_onnx(args.model_load_dir, save_path='{}.onnx'.format(args.model))
+    import onnxruntime as ort
+    import numpy as np
+    ort_session = ort.InferenceSession('{}.onnx'.format(args.model))
+    images = np.random.rand([64, 224, 224, 3]).astype(np.float32)
+    labels = np.random.randint(64, 1).astype(np.int32)
+    outputs = ort_session.run(None, {'Input_2/out': images, 'Input_3/out':labels})
+    print(outputs)
 
 if __name__ == "__main__":
     main()

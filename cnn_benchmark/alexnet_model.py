@@ -42,10 +42,10 @@ def alexnet(images, trainable=True):
         name="fc1",
     )
 
-    dropout1 = flow.nn.dropout(fc1, rate=0.5)
+    # dropout1 = flow.nn.dropout(fc1, rate=0.5)
 
     fc2 = flow.layers.dense(
-        inputs=dropout1,
+        inputs=fc1,
         units=4096,
         activation=flow.keras.activations.relu,
         use_bias=False,
@@ -55,10 +55,10 @@ def alexnet(images, trainable=True):
         name="fc2",
     )
 
-    dropout2 = flow.nn.dropout(fc2, rate=0.5)
+    # dropout2 = flow.nn.dropout(fc2, rate=0.5)
 
     fc3 = flow.layers.dense(
-        inputs=dropout2,
+        inputs=fc2,
         units=1001,
         activation=None,
         use_bias=False,
