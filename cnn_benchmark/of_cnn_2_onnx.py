@@ -20,7 +20,9 @@ parser = argparse.ArgumentParser(description="flags for oneflow cnn to onnx")
 parser.add_argument("--model", type=str, default="alexnet", help="alexnet, vgg16 or resnet50")
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--image_size", type=int, default=224, help="image size")
-parser.add_argument("--model_load_dir", type=str, default=None, help="model load directory")
+parser.add_argument("--model_load_dir", type=str,
+                    default='/home/xiexuan/sandbox/OneFlow-Benchmark/snapshot_alexnet_init',
+                    help="model load directory")
 parser.add_argument("--log_dir", type=str, default="./output", help="log info save directory")
 
 args = parser.parse_args()
@@ -55,6 +57,7 @@ def main():
     print("-".ljust(66, "-"))
     print("Time stamp: {}".format(str(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))))
 
+    assert args.model_load_dir
     check_point = flow.train.CheckPoint()
     if args.model_load_dir:
         assert os.path.isdir(args.model_load_dir)
@@ -63,9 +66,8 @@ def main():
     else:
         print("Init model on demand.")
         check_point.init()
-    onnx_model = flow.export_onnx()
+    onnx_model = flow.export_onnx(args.model_load_dir)
     print(type(onnx_model))
-    print(onnx_model.graph.node)
 
 
 if __name__ == "__main__":
