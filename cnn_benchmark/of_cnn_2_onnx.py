@@ -21,7 +21,7 @@ parser.add_argument("--model", type=str, default="alexnet", help="alexnet, vgg16
 parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--image_size", type=int, default=224, help="image size")
 parser.add_argument("--model_load_dir", type=str,
-                    default='/home/xiexuan/sandbox/OneFlow-Benchmark/snapshot_alexnet_init',
+                    default='/model_zoo/alexnet/of_alexnet_init',
                     help="model load directory")
 parser.add_argument("--log_dir", type=str, default="./output", help="log info save directory")
 
@@ -66,7 +66,11 @@ def main():
     else:
         print("Init model on demand.")
         check_point.init()
+
+    # export oneflow job confs to onnx model
     flow.export_onnx(args.model_load_dir, save_path='{}.onnx'.format(args.model))
+
+    # test on onnxruntime
     import onnxruntime as ort
     import numpy as np
     ort_session = ort.InferenceSession('{}.onnx'.format(args.model))
