@@ -82,7 +82,7 @@ sh inference.sh
 <div align="center">
     <img src="data/fish.jpg" align='center'/>
 </div>
- **输出：** 
+  **输出：**  
 
 ```shell
 data/fish.jpg
@@ -546,7 +546,7 @@ Class: tiger, Panthera tigris; score: 0.8112028241157532
 
 上面的示例代码，介绍了如何转换resnet模型至onnx模型，并给出了一个利用onnx runtime进行预测的例子，同样，你也可以利用下面的步骤来完成自己训练的resnet或其他模型的转换。
 
- **步骤一：指定模型路径**
+ **步骤一：指定模型路径 **
 
 首先指定待转换的OneFlow模型路径，然后指定转换后的ONNX模型存放路径，例如示例中：
 
