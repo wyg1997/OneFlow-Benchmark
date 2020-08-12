@@ -140,7 +140,7 @@ do
 done
 ```
 
-Note: Please to make sure all servers can login each other automaticly with ssh-key.
+Note: Please do make sure all servers can login each other automaticly with ssh-key.
 
 ### Test Command Example
 ```
