@@ -51,6 +51,7 @@ def get_parser(parser=None):
     parser.add_argument("--ctrl_port", type=int, default=50051, help='ctrl_port for multinode job')
 
     # train
+    parser.add_argument("--optimizer", type=str, default="adam", help="lamb, adam")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--weight_decay_rate", type=float, default=0.01, help="weight decay rate")
     parser.add_argument("--warmup_proportion", type=float, default=0.1)
