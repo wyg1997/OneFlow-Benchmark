@@ -171,7 +171,7 @@ def CreateOptimizer(args):
                                     weight_decay_excludes=["bias", "LayerNorm", "layer_norm"],
                                     grad_clipping=flow.optimizer.grad_clipping.by_global_norm(1.0))
     elif args.optimizer.lower() == 'lamb':
-        return flow.optimizer.AdamW(lr_scheduler, epsilon=1e-6, weight_decay=args.weight_decay_rate,
+        return flow.optimizer.LAMBW(lr_scheduler, epsilon=1e-6, weight_decay=args.weight_decay_rate,
                                     weight_decay_excludes=["bias", "LayerNorm", "layer_norm"],
                                     grad_clipping=flow.optimizer.grad_clipping.by_global_norm(1.0))
     else:
