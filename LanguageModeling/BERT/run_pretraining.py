@@ -39,8 +39,8 @@ def BertDecoder(data_dir, batch_size, data_part_num, seq_length, max_predictions
     ofrecord = flow.data.ofrecord_reader(data_dir,
                                          batch_size=batch_size,
                                          data_part_num=data_part_num,
-                                         random_shuffle = True,
-                                         shuffle_after_epoch=True)
+                                         random_shuffle=args.shuffle_data,
+                                         shuffle_after_epoch=args.shuffle_data)
     blob_confs = {}
     def _blob_conf(name, shape, dtype=flow.int32):
         blob_confs[name] = flow.data.OFRecordRawDecoder(ofrecord, name, shape=shape, dtype=dtype)
@@ -104,7 +104,7 @@ def main():
     snapshot = Snapshot(args.model_save_dir, args.model_load_dir)
 
     summary = Summary(args.log_dir, args)
-    metric = Metric(desc='train', print_steps=args.loss_print_every_n_iter, summary=summary, 
+    metric = Metric(desc='train', print_steps=args.loss_print_every_n_iter, summary=summary,
                     batch_size=batch_size, keys=['total_loss', 'mlm_loss', 'nsp_loss'])
     for step in range(args.iter_num):
         PretrainJob().async_get(metric.metric_cb(step))
