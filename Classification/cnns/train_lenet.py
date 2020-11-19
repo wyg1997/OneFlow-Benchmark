@@ -42,14 +42,49 @@ epoch_size = math.ceil(args.num_examples / train_batch_size)
 num_val_steps = int(args.num_val_examples / val_batch_size)
 
 
-model_dict = {
-    "resnet50": resnet_model.resnet50,
-    "vgg": vgg_model.vgg16bn,
-    "alexnet": alexnet_model.alexnet,
-    "inceptionv3": inception_model.inceptionv3,
-    "mobilenetv2": mobilenet_v2_model.Mobilenet,
-    "resnext50": resnext_model.resnext50,
-}
+def lenet(data, train=False):
+    initializer = flow.truncated_normal(0.1)
+    conv1 = flow.layers.conv2d(
+        data,
+        32,
+        5,
+        padding="SAME",
+        activation=flow.nn.relu,
+        name="conv1",
+        kernel_initializer=initializer,
+    )
+    pool1 = flow.nn.max_pool2d(
+        conv1, ksize=2, strides=2, padding="SAME", name="pool1", data_format="NCHW"
+    )
+    conv2 = flow.layers.conv2d(
+        pool1,
+        64,
+        5,
+        padding="SAME",
+        activation=flow.nn.relu,
+        name="conv2",
+        kernel_initializer=initializer,
+    )
+    pool2 = flow.nn.max_pool2d(
+        conv2, ksize=2, strides=2, padding="SAME", name="pool2", data_format="NCHW"
+    )
+    reshape = flow.reshape(pool2, [pool2.shape[0], -1])
+    hidden = flow.layers.dense(
+        reshape,
+        512,
+        activation=flow.nn.relu,
+        kernel_initializer=initializer,
+        name="dense1",
+    )
+    if train:
+        hidden = flow.nn.dropout(hidden, rate=0.5, name="dropout")
+    output = flow.layers.dense(
+        hidden,
+        10,
+        kernel_initializer=initializer,
+        name="dense2"
+    )
+    return output
 
 
 flow.config.gpu_device_num(args.gpu_num_per_node)
@@ -74,9 +109,11 @@ def TrainNet():
     else:
         print("Loading synthetic data.")
         (labels, images) = ofrecord_util.load_synthetic(args)
-    logits = model_dict[args.model](images,
-                                    need_transpose=False if args.train_data_dir else True,
-                                    )
+    # logits = model_dict[args.model](images,
+    #                                 need_transpose=False if args.train_data_dir else True,
+    #                                 )
+    logits = lenet(images, True)
+
     if args.label_smoothing > 0:
         one_hot_labels = label_smoothing(labels, args.num_classes, args.label_smoothing, logits.dtype)
         loss = flow.nn.softmax_cross_entropy_with_logits(one_hot_labels, logits, name="softmax_loss")
@@ -86,24 +123,6 @@ def TrainNet():
     flow.losses.add_loss(loss)
     predictions = flow.nn.softmax(logits)
     outputs = {"loss": loss, "predictions": predictions, "labels": labels}
-    return outputs
-
-
-@flow.global_function("predict", get_val_config(args))
-def InferenceNet():
-    if args.val_data_dir:
-        assert os.path.exists(args.val_data_dir)
-        print("Loading data from {}".format(args.val_data_dir))
-        (labels, images) = ofrecord_util.load_imagenet_for_validation(args)
-
-    else:
-        print("Loading synthetic data.")
-        (labels, images) = ofrecord_util.load_synthetic(args)
-
-    logits = model_dict[args.model](
-        images, need_transpose=False if args.val_data_dir else True)
-    predictions = flow.nn.softmax(logits)
-    outputs = {"predictions": predictions, "labels": labels}
     return outputs
 
 
