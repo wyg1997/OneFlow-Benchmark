@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import os
 import time
@@ -28,7 +25,7 @@ import oneflow as flow
 def InitNodes(args):
     if args.num_nodes > 1:
         assert args.num_nodes <= len(args.node_ips)
-        flow.env.ctrl_port(12138)
+        flow.env.ctrl_port(args.ctrl_port)
         nodes = []
         for ip in args.node_ips[:args.num_nodes]:
             addr_dict = {}
@@ -160,12 +157,12 @@ class Metric(object):
                 if self.loss_key:
                     loss = outputs[self.loss_key].mean()
                     print(self.fmt.format(self.desc, epoch, step + 1, loss, top_1_accuracy,
-                                          top_k_accuracy, throughput))
+                                          top_k_accuracy, throughput), time.time())
                     if self.save_summary:
                         self.summary.scalar(self.desc+"_" + self.loss_key, loss, epoch, step)
                 else:
                     print(self.fmt.format(self.desc, epoch, step + 1, top_1_accuracy,
-                                          top_k_accuracy, throughput))
+                                          top_k_accuracy, throughput), time.time())
 
                 self._clear()
                 if self.save_summary:

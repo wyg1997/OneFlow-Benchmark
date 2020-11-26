@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import os
 import time
@@ -54,15 +51,14 @@ model_dict = {
 
 
 flow.config.gpu_device_num(args.gpu_num_per_node)
-flow.config.enable_debug_mode(True)
+#flow.config.enable_debug_mode(True)
 @flow.global_function("predict", get_val_config(args))
 def InferenceNet():
     assert os.path.exists(args.val_data_dir)
     print("Loading data from {}".format(args.val_data_dir))
     (labels, images) = ofrecord_util.load_imagenet_for_validation(args)
 
-    logits = model_dict[args.model](images,
-                                    need_transpose=False if args.val_data_dir else True)
+    logits = model_dict[args.model](images, args)
     predictions = flow.nn.softmax(logits)
     outputs = {"predictions": predictions, "labels": labels}
     return outputs
@@ -72,7 +68,6 @@ def main():
     InitNodes(args)
     assert args.model_load_dir, 'Must have model load dir!'
 
-    flow.env.grpc_use_no_signal()
     flow.env.log_dir(args.log_dir)
     summary = Summary(args.log_dir, args)
     # snapshot = Snapshot(args.model_save_dir, args.model_load_dir)

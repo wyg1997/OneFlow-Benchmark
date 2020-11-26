@@ -53,7 +53,7 @@ ImageNet大规模视觉识别挑战赛（ILSVRC），常称为ImageNet竞赛，�
 
 在2012年的ImageNet竞赛中，深度卷积网络AlexNet横空出世。以超出第二名10%以上的top-5准确率，勇夺ImageNet2012比赛的冠军。从此，以 CNN（卷积神经网络） 为代表的深度学习方法开始在计算机视觉领域的应用开始大放异彩，更多的更深的CNN网络被提出，比如ImageNet2014比赛的冠军VGGNet, ImageNet2015比赛的冠军ResNet。
 
-OneFlow-Benchmark下的cnn仓库目前已支持 **Alexnet** 、 **VGG16** 、 **Resnet50** **InceptionV3** **MobileNetV2**等经典的cnn模型，未来会陆续添加新的cnn模型。这些cnn模型共享一套训练、验证和推理代码，您只需要指定模型，即可使用一套代码完成这些cnn网络模型的训练、测试和验证。
+OneFlow-Benchmark下的cnn仓库目前已支持 **Alexnet** 、 **VGG16** 、 **Resnet50** 、　**InceptionV3** 、　**MobileNetV2**等经典的cnn模型，未来会陆续添加新的cnn模型。这些cnn模型共享一套训练、验证和推理代码，您只需要指定模型，即可使用一套代码完成这些cnn网络模型的训练、测试和验证。
 
 
 
@@ -111,6 +111,9 @@ OneFlow-Benchmark下的cnn仓库目前已支持 **Alexnet** 、 **VGG16** 、 **
 
 [alexnet_model](https://oneflow-public.oss-cn-beijing.aliyuncs.com/model_zoo/alexnet_of_best_model_val_top1_54762.zip) (validation accuracy: 54.762% top1，78.1914% top5 )
 
+#### InceptionV3 
+
+[inceptionv3_model](https://oneflow-public.oss-cn-beijing.aliyuncs.com/model_zoo/inceptionv3_of_best_model_val_top1_74.19.zip) (validation accuracy: 74.19% top1，91.46% top5 )
 
 
 ### 预测/推理
@@ -127,7 +130,8 @@ sh inference.sh
 <div align="center">
     <img src="data/fish.jpg" align='center'/>
 </div>
- **输出：** 
+
+ **输出**  
 
 ```shell
 data/fish.jpg
@@ -173,25 +177,49 @@ rm -rf ./output/snapshots/*
 
 DATA_ROOT=data/mini-imagenet/ofrecord
 
+# training with mini-imagenet
+DATA_ROOT=data/mini-imagenet/ofrecord
 python3 of_cnn_train_val.py \
-    --train_data_dir=$DATA_ROOT/train \
-    --num_examples=50 \
-    --train_data_part_num=1 \
-    --val_data_dir=$DATA_ROOT/validation \
-    --num_val_examples=50 \
-    --val_data_part_num=1 \
-    --num_nodes=1 \
-    --gpu_num_per_node=1 \
-    --model_update="momentum" \
-    --learning_rate=0.001 \
-    --loss_print_every_n_iter=1 \
-    --batch_size_per_device=16 \
-    --val_batch_size_per_device=10 \
-    --num_epoch=10 \
-    --model="resnet50"
+   --train_data_dir=$DATA_ROOT/train \
+   --num_examples=50 \
+   --train_data_part_num=1 \
+   --val_data_dir=$DATA_ROOT/validation \
+   --num_val_examples=50 \
+   --val_data_part_num=1 \
+   --num_nodes=1 \
+   --gpu_num_per_node=1 \
+   --optimizer="sgd" \
+   --momentum=0.875 \
+   --learning_rate=0.001 \
+   --loss_print_every_n_iter=1 \
+   --batch_size_per_device=16 \
+   --val_batch_size_per_device=10 \
+   --num_epoch=10 \
+   --model="resnet50"
 ```
 
 运行此脚本，将在仅有50张金鱼图片的迷你imagenet数据集上，训练出一个分类模型，利用它，你可以对金鱼图片进行分类。
+
+训练完成后，你也可以修改evaluate.sh脚本以对模型进行评估：
+
+```shell
+#!/bin/bash
+# Evaluate with mini-imagenet
+DATA_ROOT=data/mini-imagenet/ofrecord
+MODEL_LOAD_DIR="output/snapshots/model_save-20200907130848/snapshot_epoch_9"
+python3  of_cnn_evaluate.py \
+    --num_epochs=3 \
+    --num_val_examples=50 \
+    --model_load_dir=$MODEL_LOAD_DIR  \
+    --val_data_dir=$DATA_ROOT/validation \
+    --val_data_part_num=1 \
+    --num_nodes=1 \
+    --gpu_num_per_node=1 \
+    --val_batch_size_per_device=10 \
+    --model="resnet50"
+```
+
+恭喜你，得到了这个还不错的金鱼分类模型，想尝试在完整imagenet上训练自己的分类模型吗？
 
 不要着急，如果您需要在完整的ImageNet2012数据集上进行训练，请看下文【ResNet】部分的介绍。其中，我们将重点介绍其中的经典网络：Resnet50，以及如何利用OneFlow在完整的Imagenet2012数据集上训练Resnet50，并提供 **对标Nvidia的Mxnet版** 实现。
 
@@ -233,50 +261,47 @@ cd OneFlow-Benchmark/Classification/cnns
 rm -rf core.* 
 rm -rf ./output/snapshots/*
 
-DATA_ROOT=/dataset/ImageNet/ofrecord
+# training with imagenet
+ DATA_ROOT=/datasets/ImageNet/ofrecord
+ LOG_FOLDER=../logs
+ mkdir -p $LOG_FOLDER
+ LOGFILE=$LOG_FOLDER/resnet_training.log
 
 python3 of_cnn_train_val.py \
-    --train_data_dir=$DATA_ROOT/train \
-    --train_data_part_num=256 \
-    --val_data_dir=$DATA_ROOT/validation \
-    --val_data_part_num=256 \
-    --num_nodes=1 \
-    --gpu_num_per_node=4 \
-    --model_update="momentum" \
-    --learning_rate=0.256 \
-    --loss_print_every_n_iter=10 \
-    --batch_size_per_device=64 \
-    --val_batch_size_per_device=50 \
-    --num_epoch=90 \
-    --model="resnet50"
+     --train_data_dir=$DATA_ROOT/train \
+     --train_data_part_num=256 \
+     --val_data_dir=$DATA_ROOT/validation \
+     --val_data_part_num=256 \
+     --num_nodes=1 \
+     --gpu_num_per_node=4 \
+     --optimizer="sgd" \
+     --momentum=0.875 \
+     --label_smoothing=0.1 \
+     --learning_rate=0.256 \
+     --loss_print_every_n_iter=100 \
+     --batch_size_per_device=64 \
+     --val_batch_size_per_device=50 \
+     --num_epoch=90 \
+     --model="resnet50" 2>&1 | tee ${LOGFILE}
+
+echo "Writting log to ${LOGFILE}" 
 ```
 
 **参数说明**(部分)
 
 - --train_data_dir                Imagenet2012训练集文件夹路径(ofrecord格式)
-
 - --train_data_part_num   训练所用的ofrecord分片数量
-
 - --val_data_dir                    Imagenet2012验证集文件夹路径(ofrecord格式)
-
 - --val_data_part_num       验证所用的ofrecord分片数量
-
-- --num_nodes=1                训练使用的机器节点数
-
+- --num_nodes                    训练使用的机器节点数
 - --gpu_num_per_node      每个机器节点使用的gpu数量
-
-- --model_update="momentum"    学习率更新方式
-
-- --learning_rate=0.256               初始学习率
-
+- --optimizer                                 优化器，默认sgd
+- --label_smoothing                     是否使用标签平滑处理
+- --learning_rate                           初始学习率
 - --loss_print_every_n_iter          打印loss间隔 
-
 - --batch_size_per_device            训练时每个gpu的batch大小
-
 - --val_batch_size_per_device     验证时每个gpu的batch大小
-
 - --num_epoch                              迭代总轮数
-
 - --model                                        使用的模型，可选：resnet50、vgg、alexnet、inceptionv3
 
 然后在命令行执行：
@@ -591,7 +616,7 @@ Class: tiger, Panthera tigris; score: 0.8112028241157532
 
 #### 如何生成 ONNX 模型
 
-**步骤一：指定模型路径 ** 
+**步骤一：指定模型路径**  
 
 首先指定待转换的OneFlow模型路径，然后指定转换后的ONNX模型存放路径，例如示例中：
 
@@ -630,8 +655,8 @@ python3 of_cnn_train_val.py \
     --val_data_part_num=256 \
     --num_nodes=1 \
     --gpu_num_per_node=1 \
-    --model_update="momentum" \
-    --mom=0.9 \
+    --optimizer="sgd" \
+    --momentum=0.9 \
     --learning_rate=0.01 \
     --loss_print_every_n_iter=100 \
     --batch_size_per_device=512 \
@@ -655,8 +680,8 @@ python3 cnn_benchmark/of_cnn_train_val.py \
     --val_data_part_num=256 \
     --num_nodes=1 \
     --gpu_num_per_node=4 \
-    --model_update="momentum" \
-    --mom=0.9 \
+    --optimizer="sgd" \
+    --momentum=0.9 \
     --learning_rate=0.01 \
     --loss_print_every_n_iter=10 \
     --batch_size_per_device=128 \
@@ -679,7 +704,7 @@ python3 of_cnn_train_val.py \
     --val_data_part_num=256 \
     --num_nodes=1 \
     --gpu_num_per_node=1 \
-    --model_update="rmsprop" \
+    --optimizer="rmsprop"  \
     --epsilon=1 \
     --decay_rate=0.9 \
     --learning_rate=0.045 \
@@ -698,6 +723,6 @@ python3 of_cnn_train_val.py \
     --warmup_epochs=0 \
 ```
 
-经过100个epochs的训练后，oneflow模型在验证集上的top1准确率和top5准确率分别为72.53％和90.04％；在训练集上的top1准确率和top5准确率分别为81.19％和93.15％。
-目前训练结果和主流benchmark的准确率还有差距，我们会在后续调整数据预处理方式，并进一步调整训练参数，已达到预期效果，并提供预训练模型。
+经过100个epochs的训练后，oneflow模型在验证集上的top1准确率和top5准确率分别为74.19％和91.46％；在训练集上的top1准确率和top5准确率分别为81.19％和93.15％。目前训练结果和主流benchmark在top1
+准确率上相差约为1.6%，我们会在后续调整数据预处理方式，并进一步调整训练参数，以达到预期效果。
 

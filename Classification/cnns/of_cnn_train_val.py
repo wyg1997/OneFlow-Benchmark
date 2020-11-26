@@ -13,13 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import os
 import math
 import oneflow as flow
 import ofrecord_util
+import optimizer_util
 import config as configs
 from util import Snapshot, Summary, InitNodes, Metric
 from job_function_util import get_train_config, get_val_config
@@ -53,13 +51,20 @@ model_dict = {
 
 
 flow.config.gpu_device_num(args.gpu_num_per_node)
-flow.config.enable_debug_mode(True)
+#flow.config.enable_debug_mode(True)
 
+if args.use_fp16 and args.num_nodes * args.gpu_num_per_node > 1:
+    flow.config.collective_boxing.nccl_fusion_all_reduce_use_buffer(False)
+
+if args.nccl_fusion_threshold_mb:
+    flow.config.collective_boxing.nccl_fusion_threshold_mb(args.nccl_fusion_threshold_mb)
+
+if args.nccl_fusion_max_ops:
+    flow.config.collective_boxing.nccl_fusion_max_ops(args.nccl_fusion_max_ops)
 
 def label_smoothing(labels, classes, eta, dtype):
     assert classes > 0
     assert eta >= 0.0 and eta < 1.0
-
     return flow.one_hot(labels, depth=classes, dtype=dtype,
                         on_value=1 - eta + eta / classes, off_value=eta/classes)
 
@@ -74,18 +79,20 @@ def TrainNet():
     else:
         print("Loading synthetic data.")
         (labels, images) = ofrecord_util.load_synthetic(args)
-    logits = model_dict[args.model](images,
-                                    need_transpose=False if args.train_data_dir else True,
-                                    )
+    logits = model_dict[args.model](images, args)
     if args.label_smoothing > 0:
         one_hot_labels = label_smoothing(labels, args.num_classes, args.label_smoothing, logits.dtype)
         loss = flow.nn.softmax_cross_entropy_with_logits(one_hot_labels, logits, name="softmax_loss")
     else:
         loss = flow.nn.sparse_softmax_cross_entropy_with_logits(labels, logits, name="softmax_loss")
 
-    flow.losses.add_loss(loss)
+    if not args.use_fp16:
+        loss = flow.math.reduce_mean(loss)
     predictions = flow.nn.softmax(logits)
     outputs = {"loss": loss, "predictions": predictions, "labels": labels}
+
+    # set up warmup,learning rate and optimizer
+    optimizer_util.set_up_optimizer(loss, args)
     return outputs
 
 
@@ -100,8 +107,7 @@ def InferenceNet():
         print("Loading synthetic data.")
         (labels, images) = ofrecord_util.load_synthetic(args)
 
-    logits = model_dict[args.model](
-        images, need_transpose=False if args.val_data_dir else True)
+    logits = model_dict[args.model](images, args)
     predictions = flow.nn.softmax(logits)
     outputs = {"predictions": predictions, "labels": labels}
     return outputs
@@ -109,7 +115,6 @@ def InferenceNet():
 
 def main():
     InitNodes(args)
-    flow.env.grpc_use_no_signal()
     flow.env.log_dir(args.log_dir)
 
     summary = Summary(args.log_dir, args)

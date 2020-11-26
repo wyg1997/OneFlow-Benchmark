@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import os
 import numpy as np
@@ -60,7 +57,7 @@ def load_image(image_path='test_img/ILSVRC2012_val_00020287.JPEG'):
 
 @flow.global_function("predict", flow.function_config())
 def InferenceNet(images: tp.Numpy.Placeholder((1, 3, 224, 224), dtype=flow.float)) -> tp.Numpy:
-    logits = model_dict[args.model](images, training=False)
+    logits = model_dict[args.model](images, args, training=False)
     predictions = flow.nn.softmax(logits)
     return predictions
 

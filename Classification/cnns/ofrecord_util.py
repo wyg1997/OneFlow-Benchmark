@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import oneflow as flow
 
@@ -73,8 +70,9 @@ def load_synthetic(args):
         initializer=flow.zeros_initializer(flow.int32),
     )
 
+    shape=(args.image_size, args.image_size, 3) if args.channel_last else (3, args.image_size, args.image_size)
     image = flow.data.decode_random(
-        shape=(args.image_size, args.image_size, 3), dtype=flow.float, batch_size=batch_size
+        shape=shape, dtype=flow.float, batch_size=batch_size
     )
 
     return label, image
@@ -83,6 +81,7 @@ def load_synthetic(args):
 def load_imagenet_for_training(args):
     total_device_num = args.num_nodes * args.gpu_num_per_node
     train_batch_size = total_device_num * args.batch_size_per_device
+    output_layout="NHWC" if args.channel_last else "NCHW"
 
     color_space = 'RGB'
     ofrecord = flow.data.ofrecord_reader(args.train_data_dir,
@@ -91,15 +90,20 @@ def load_imagenet_for_training(args):
                                         part_name_suffix_length=5,
                                         random_shuffle=True,
                                         shuffle_after_epoch=True)
-    image = flow.data.OFRecordImageDecoderRandomCrop(ofrecord, "encoded",  # seed=seed,
-                                                    color_space=color_space)
     label = flow.data.OFRecordRawDecoder(
         ofrecord, "class/label", shape=(), dtype=flow.int32)
-    rsz = flow.image.Resize(image, resize_x=args.image_size, resize_y=args.image_size,
-                            color_space=color_space)
+    if args.gpu_image_decoder:
+        encoded = flow.data.OFRecordBytesDecoder(ofrecord, "encoded")
+        image = flow.data.ImageDecoderRandomCropResize(encoded, target_width=224, target_height=224, num_workers=3)
+    else:
+        image = flow.data.OFRecordImageDecoderRandomCrop(ofrecord, "encoded",  # seed=seed,
+                                                        color_space=color_space)
+        rsz = flow.image.Resize(image, target_size=[args.image_size, args.image_size])
+        image = rsz[0]
 
     rng = flow.random.CoinFlip(batch_size=train_batch_size)  # , seed=seed)
-    normal = flow.image.CropMirrorNormalize(rsz, mirror_blob=rng, color_space=color_space,
+    normal = flow.image.CropMirrorNormalize(image, mirror_blob=rng,
+                                            color_space=color_space, output_layout=output_layout,
                                             mean=args.rgb_mean, std=args.rgb_std, output_dtype=flow.float)
     return label, normal
 
@@ -107,6 +111,7 @@ def load_imagenet_for_training(args):
 def load_imagenet_for_validation(args):
     total_device_num = args.num_nodes * args.gpu_num_per_node
     val_batch_size = total_device_num * args.val_batch_size_per_device
+    output_layout="NHWC" if args.channel_last else "NCHW"
 
     color_space = 'RGB'
     ofrecord = flow.data.ofrecord_reader(args.val_data_dir,
@@ -118,10 +123,13 @@ def load_imagenet_for_validation(args):
         ofrecord, "encoded", color_space=color_space)
     label = flow.data.OFRecordRawDecoder(
         ofrecord, "class/label", shape=(), dtype=flow.int32)
-    rsz = flow.image.Resize(
-        image, resize_shorter=args.resize_shorter, color_space=color_space)
 
-    normal = flow.image.CropMirrorNormalize(rsz, color_space=color_space,
+    rsz = flow.image.Resize(
+        image, resize_side="shorter",
+        keep_aspect_ratio=True,
+        target_size=args.resize_shorter)
+
+    normal = flow.image.CropMirrorNormalize(rsz[0], color_space=color_space, output_layout=output_layout,
                                             crop_h=args.image_size, crop_w=args.image_size, crop_pos_y=0.5, crop_pos_x=0.5,
                                             mean=args.rgb_mean, std=args.rgb_std, output_dtype=flow.float)
     return label, normal
@@ -137,7 +145,7 @@ if __name__ == "__main__":
     configs.print_args(args)
 
     flow.config.gpu_device_num(args.gpu_num_per_node)
-    flow.config.enable_debug_mode(True)
+    #flow.config.enable_debug_mode(True)
     @flow.global_function(get_val_config(args))
     def IOTest():
         if args.train_data_dir:

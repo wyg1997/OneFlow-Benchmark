@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import os
 import time
@@ -29,7 +26,7 @@ import oneflow as flow
 def InitNodes(args):
     if args.num_nodes > 1:
         assert args.num_nodes <= len(args.node_ips)
-        #flow.env.ctrl_port(12138)
+        flow.env.ctrl_port(args.ctrl_port)
         nodes = []
         for ip in args.node_ips[:args.num_nodes]:
             addr_dict = {}
@@ -134,7 +131,7 @@ class Metric(object):
             self.metric_dict[key] = 0.0
         self.metric_dict['throughput'] = 0.0
         self.num_samples = 0.0
-    
+
     def update_and_save(self, key, value, step, **kwargs):
         self.metric_dict[key] = value
         if self.save_summary:
@@ -159,7 +156,7 @@ class Metric(object):
                     value = self.metric_dict[key] / self.num_samples
                     self.update_and_save(key, value, step, **kwargs)
                 print(', '.join(('{}: {}' if type(v) is int else '{}: {:.3f}').format(k, v) \
-                                for k, v in self.metric_dict.items()))
+                                for k, v in self.metric_dict.items()), time.time())
                 self._clear()
 
         return callback
@@ -167,8 +164,18 @@ class Metric(object):
 def CreateOptimizer(args):
     warmup_batches = int(args.iter_num * args.warmup_proportion)
     lr_warmup = flow.optimizer.warmup.linear(warmup_batches, 0)
-    lr_scheduler = flow.optimizer.PolynomialSchduler(args.learning_rate, args.iter_num, 0.0, 
+    lr_scheduler = flow.optimizer.PolynomialSchduler(args.learning_rate, args.iter_num, 0.0,
                                                      warmup=lr_warmup)
-    return flow.optimizer.AdamW(lr_scheduler, epsilon=1e-6, weight_decay=args.weight_decay_rate, 
+    return flow.optimizer.AdamW(lr_scheduler, epsilon=1e-6, weight_decay=args.weight_decay_rate,
                                 weight_decay_excludes=["bias", "LayerNorm", "layer_norm"],
                                 grad_clipping=flow.optimizer.grad_clipping.by_global_norm(1.0))
+
+def GetFunctionConfig(args):
+    config = flow.function_config()
+    config.enable_auto_mixed_precision(args.use_fp16)
+    if args.use_xla:
+        config.use_xla_jit(True)
+    config.enable_fuse_add_to_output(True)
+    config.enable_fuse_model_update_ops(True)
+    return config
+

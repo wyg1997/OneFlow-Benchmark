@@ -13,9 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import argparse
 from datetime import datetime
@@ -55,6 +52,7 @@ def get_parser(parser=None):
                         help='node/machine number for training')
     parser.add_argument('--node_ips', type=str_list, default=['192.168.1.13', '192.168.1.14'],
                         help='nodes ip list for training, devided by ",", length >= num_nodes')
+    parser.add_argument("--ctrl_port", type=int, default=50051, help='ctrl_port for multinode job')
 
     parser.add_argument("--model", type=str, default="resnet50",
                         help="resnet50")
@@ -66,11 +64,25 @@ def get_parser(parser=None):
         help='Whether to use use fp16'
     )
     parser.add_argument(
+        '--use_xla',
+        type=str2bool,
+        nargs='?',
+        const=True,
+        help='Whether to use use xla'
+    )
+    parser.add_argument(
         '--channel_last',
         type=str2bool,
         nargs='?',
         const=False,
         help='Whether to use use channel last mode(nhwc)'
+    )
+    parser.add_argument(
+        '--pad_output',
+        type=str2bool,
+        nargs='?',
+        const=True,
+        help='Whether to pad the output to number of image channels to 4.'
     )
 
     # train and validaion
@@ -81,6 +93,26 @@ def get_parser(parser=None):
     parser.add_argument("--batch_size_per_device", type=int, default=64)
     parser.add_argument("--val_batch_size_per_device", type=int, default=8)
 
+    parser.add_argument("--nccl_fusion_threshold_mb", type=int, default=0,
+                        help="NCCL fusion threshold megabytes, set to 0 to compatible with previous version of OneFlow.")
+    parser.add_argument("--nccl_fusion_max_ops", type=int, default=0,
+                        help="Maximum number of ops of NCCL fusion, set to 0 to compatible with previous version of OneFlow.")
+
+    # fuse bn relu or bn add relu
+    parser.add_argument(
+        '--fuse_bn_relu',
+        type=str2bool,
+        default=False,
+        help='Whether to use use fuse batch normalization relu. Currently supported in origin/master of OneFlow only.'
+    )
+    parser.add_argument(
+        '--fuse_bn_add_relu',
+        type=str2bool,
+        default=False,
+        help='Whether to use use fuse batch normalization add relu. Currently supported in origin/master of OneFlow only.'
+    )
+    parser.add_argument("--gpu_image_decoder", type=str2bool,
+                        default=False, help='Whether to use use ImageDecoderRandomCropResize.')
     # inference
     parser.add_argument("--image_path", type=str, default='test_img/tiger.jpg', help="image path")
 
@@ -94,11 +126,9 @@ def get_parser(parser=None):
                         help='a tuple of size 3 for the mean rgb')
     parser.add_argument('--rgb-std', type=float_list, default=[58.393, 57.12, 57.375],
                         help='a tuple of size 3 for the std rgb')
-    parser.add_argument("--input_layout", type=str,
-                        default='NHWC', help="NCHW or NHWC")
     parser.add_argument('--image-shape', type=int_list, default=[3, 224, 224],
                         help='the image shape feed into the network')
-    parser.add_argument('--label-smoothing', type=float, default=0.1, help='label smoothing factor')
+    parser.add_argument('--label_smoothing', type=float, default=0.1, help='label smoothing factor')
 
     # snapshot
     parser.add_argument("--model_save_dir", type=str,
